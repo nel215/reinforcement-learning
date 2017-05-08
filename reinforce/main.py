@@ -37,9 +37,10 @@ class ReinforceAgent(object):
         self.n_action = n_action
         self.actions = []
         self.observations = []
+        self.temporary_rewards = []
         self.rewards = []
         self.policy = Policy(n_action, n_obs)
-        self.optimizer = optimizers.Adam(alpha=0.01)
+        self.optimizer = optimizers.Adam()
         self.optimizer.use_cleargrads()
         self.optimizer.setup(self.policy)
 
@@ -55,9 +56,20 @@ class ReinforceAgent(object):
     def store_reward(self, obs, act, reward):
         self.observations.append(obs)
         self.actions.append(act)
-        self.rewards.append(reward)
+        self.temporary_rewards.append(reward)
+
+    def _discount_rewards(self, rewards):
+        discount_rewards = []
+        current = 0
+        for r in reversed(rewards):
+            current += r
+            discount_rewards.append(current)
+            current *= 0.97
+        return list(reversed(discount_rewards))
 
     def update(self):
+        self.rewards += self._discount_rewards(self.temporary_rewards)
+        self.temporary_rewards = []
         self.optimizer.update(self.policy, self.actions, self.observations, self.rewards)
 
 
