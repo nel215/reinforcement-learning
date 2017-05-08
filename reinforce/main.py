@@ -18,13 +18,16 @@ class Policy(Chain):
         h = self.l(obs)
         return F.softmax(h)
 
-    def __call__(self, observations, rewards):
+    def __call__(self, actions, observations, rewards):
+        n = len(actions)
+        actions = np.array(actions).astype(np.int32)
         observations = np.array(observations).astype(np.float32)
-        rewards = np.array(rewards).astype(np.float32).reshape((len(rewards), 1))
+        rewards = np.array(rewards).astype(np.float32)
         baseline = np.mean(rewards)
         action_prob = self.forward(observations)
+        actual_action_prob = F.select_item(action_prob, actions)
 
-        loss = -F.sum(F.log(action_prob) * (rewards - baseline)) / observations.shape[0]
+        loss = -F.sum(F.log(actual_action_prob) * (rewards - baseline)) / n
         return loss
 
 
@@ -36,7 +39,7 @@ class ReinforceAgent(object):
         self.observations = []
         self.rewards = []
         self.policy = Policy(n_action, n_obs)
-        self.optimizer = optimizers.SGD()
+        self.optimizer = optimizers.Adam(alpha=0.01)
         self.optimizer.use_cleargrads()
         self.optimizer.setup(self.policy)
 
@@ -55,7 +58,7 @@ class ReinforceAgent(object):
         self.rewards.append(reward)
 
     def update(self):
-        self.optimizer.update(self.policy, self.observations, self.rewards)
+        self.optimizer.update(self.policy, self.actions, self.observations, self.rewards)
 
 
 env = gym.make('CartPole-v0')
