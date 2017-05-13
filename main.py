@@ -1,7 +1,7 @@
 # coding: utf-8
 import matplotlib
 matplotlib.use('Agg')
-from rl.agent import QLearningAgent
+from rl.agent import QLearningAgent, SarsaAgent
 import gym
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -16,9 +16,10 @@ def run_episode(agent):
         cnt += 1
         action = agent.action(obs)
         next_obs, reward, done, info = env.step(action)
+        agent.store(obs, action, reward, next_obs)
+        agent.update()
         if done:
             break
-        agent.update(obs, action, reward, next_obs)
         obs = next_obs
     return cnt
 
@@ -29,7 +30,7 @@ if __name__ == '__main__':
     result = []
     for i in range(trial):
         print('trial %i start.' % (i))
-        agent = QLearningAgent(env.action_space)
+        agent = SarsaAgent(env.action_space)
         for j in range(n_episode):
             cnt = run_episode(agent)
             result.append([j, cnt])

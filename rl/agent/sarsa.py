@@ -15,6 +15,10 @@ class SarsaAgent(object):
         self.alpha = alpha
         self.gamma = gamma
         self.q_table = {}
+        self.prev_obs = None
+        self.obs = None
+        self.reward = None
+        self.act = None
 
     def q_function(self, obs, act):
         key = (obs, act)
@@ -33,17 +37,25 @@ class SarsaAgent(object):
                 best = (score, act)
         return best[1]
 
+    def store(self, obs, act, reward, next_obs):
+        self.prev_obs = self.obs
+        self.obs = obs
+        self.act = act
+        self.reward = reward
+
     def action(self, obs):
         if random.random() < self.eps:
             return self.action_space.sample()
         return self._get_best_action(obs)
 
-    def update(self, prev_obs, prev_act, reward, obs, act):
+    def update(self):
+        if self.prev_obs is None:
+            return
         q = 0
-        q += (1.0 - self.alpha) * self.q_function(prev_obs, prev_act)
+        q += (1.0 - self.alpha) * self.q_function(self.prev_obs, self.act)
         q += self.alpha * (
-            reward + self.gamma * self.q_function(obs, act))
-        self.q_table[(obs, act)] = q
+            self.reward + self.gamma * self.q_function(self.obs, self.act))
+        self.q_table[(self.obs, self.act)] = q
 
 
 def run_episode(agent):
@@ -60,18 +72,3 @@ def run_episode(agent):
         if done:
             break
     return cnt
-
-
-trial = 50
-n_episode = 2000
-result = []
-for i in range(trial):
-    print('trial %i start.' % (i))
-    agent = SarsaAgent(env.action_space)
-    for j in range(n_episode):
-        cnt = run_episode(agent)
-        result.append([j, cnt])
-
-df = pd.DataFrame(result, columns=['episode', 'n_move'])
-df.plot.scatter(x='episode', y='n_move')
-plt.savefig('result.png')

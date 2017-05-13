@@ -10,6 +10,10 @@ class QLearningAgent(object):
         self.alpha = alpha
         self.gamma = gamma
         self.q_table = {}
+        self.obs = None
+        self.act = None
+        self.reward = None
+        self.next_obs = None
 
     def q_function(self, obs, act):
         key = (obs, act)
@@ -28,15 +32,21 @@ class QLearningAgent(object):
                 best = (score, act)
         return best[1]
 
+    def store(self, obs, act, reward, next_obs):
+        self.obs = obs
+        self.next_obs = next_obs
+        self.act = act
+        self.reward = reward
+
     def action(self, obs):
         if random.random() < self.eps:
             return self.action_space.sample()
         return self._get_best_action(obs)
 
-    def update(self, obs, act, reward, next_obs):
-        next_act = self._get_best_action(next_obs)
+    def update(self):
+        best_act = self._get_best_action(self.next_obs)
         q = 0
-        q += (1.0 - self.alpha) * self.q_function(obs, act)
+        q += (1.0 - self.alpha) * self.q_function(self.obs, self.act)
         q += self.alpha * (
-            reward + self.gamma * self.q_function(next_obs, next_act))
-        self.q_table[(obs, act)] = q
+            self.reward + self.gamma * self.q_function(self.next_obs, best_act))
+        self.q_table[(self.obs, self.act)] = q
