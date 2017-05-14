@@ -56,19 +56,3 @@ class SarsaAgent(object):
         q += self.alpha * (
             self.reward + self.gamma * self.q_function(self.obs, self.act))
         self.q_table[(self.obs, self.act)] = q
-
-
-def run_episode(agent):
-    prev_obs, prev_action = None, None
-    obs = env.reset()
-    cnt = 0
-    while True:
-        cnt += 1
-        action = agent.action(obs)
-        if prev_obs is not None and prev_action is not None:
-            agent.update(prev_obs, prev_action, reward, obs, action)
-        prev_obs, prev_action = obs, action
-        obs, reward, done, info = env.step(action)
-        if done:
-            break
-    return cnt
