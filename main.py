@@ -1,7 +1,7 @@
 # coding: utf-8
 import matplotlib
 matplotlib.use('Agg')
-from rl.agent import QLearningAgent, SarsaAgent
+from rl.agent import QLearningAgent, SarsaAgent, TDLambda
 import gym
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     result = []
     for i in range(trial):
         print('trial %i start.' % (i))
-        agent = SarsaAgent(env.action_space)
+        agent = TDLambda(env.action_space)
         for j in range(n_episode):
             cnt = run_episode(agent)
             result.append([j, cnt])
