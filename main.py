@@ -10,6 +10,7 @@ env = gym.make('FrozenLake-v0')
 
 
 def run_episode(agent):
+    agent.reset()
     obs = env.reset()
     cnt = 0
     while True:

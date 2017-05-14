@@ -56,3 +56,5 @@ class SarsaAgent(object):
         q += self.alpha * (
             self.reward + self.gamma * self.q_function(self.obs, self.act))
         self.q_table[(self.obs, self.act)] = q
+    def reset(self):
+        pass

@@ -50,3 +50,6 @@ class QLearningAgent(object):
         q += self.alpha * (
             self.reward + self.gamma * self.q_function(self.next_obs, best_act))
         self.q_table[(self.obs, self.act)] = q
+
+    def reset(self):
+        pass

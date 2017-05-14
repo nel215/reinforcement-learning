@@ -33,3 +33,6 @@ class TDLambda(object):
         self.E[self.obs] = et
         loss = self.reward + self.gamma * self.v_function(self.next_obs) - self.v_function(self.obs)
         self.V[self.obs] += self.alpha * loss * et
+
+    def reset(self):
+        self.E = {}
