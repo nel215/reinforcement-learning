@@ -133,7 +133,7 @@ env = gym.make('CartPole-v0')
 n_action = env.action_space.n
 n_obs = env.observation_space.shape[0]
 q_function = QFunction(n_action, n_obs)
-if q_function:
+if gpu:
     q_function.to_gpu(0)
 agent = DQNAgent(env.action_space, q_function, gpu=gpu)
 for j in range(10000):
