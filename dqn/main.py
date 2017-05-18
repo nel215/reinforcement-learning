@@ -65,7 +65,7 @@ class Transitions(object):
         self.dones.append(done)
         self._shift()
 
-    def sample(self, size=32):
+    def sample(self, size=512):
         n = len(self.states)
         size = min(n, size)
         perm = np.random.permutation(n)[:size]
