@@ -110,8 +110,8 @@ class DQNAgent(object):
         next_states = next_states.astype(np.float32)
         if self.gpu:
             next_states = cuda.to_gpu(next_states)
-        max_q_value = F.max(
-            self.q_function.forward(next_states, train=False), axis=1)
+        q_value = self.q_function.forward(next_states, train=False)
+        max_q_value = F.max(q_value, axis=1)
         terminal = xp.ones(dones.shape, dtype=np.float32)
         terminal[dones] = 0
         y = rewards + self.gamma * terminal * max_q_value.data
@@ -123,7 +123,10 @@ class DQNAgent(object):
             states = cuda.to_gpu(states)
             actions = cuda.to_gpu(actions)
             y = cuda.to_gpu(y)
-        self.optimizer.update(self.q_function, states, actions, y)
+        self.optimizer.zero_grads()
+        loss = self.q_function(states, actions, y)
+        loss.backward()
+        self.optimizer.update()
 
 
 env = gym.make('CartPole-v0')
@@ -133,7 +136,7 @@ q_function = QFunction(n_action, n_obs)
 if q_function:
     q_function.to_gpu(0)
 agent = DQNAgent(env.action_space, q_function, gpu=gpu)
-for j in range(1000):
+for j in range(10000):
     state = env.reset()
     sum_reward = 0
     while True:
@@ -144,5 +147,6 @@ for j in range(1000):
         sum_reward += reward
         state = next_state
         if done:
-            print('reward: {}'.format(sum_reward))
+            if j % 10 == 0:
+                print('reward: {}'.format(sum_reward))
             break
