@@ -6,7 +6,16 @@ import chainer.functions as F
 import chainer.links as L
 import matplotlib.pyplot as plt
 import chainer
+import cupy
 from chainer import Chain, optimizers
+from chainer import cuda
+
+gpu = True
+
+if gpu:
+    xp = cupy
+else:
+    xp = np
 
 
 class QFunction(Chain):
@@ -58,17 +67,17 @@ class Transitions(object):
         size = min(n, size)
         perm = np.random.permutation(n)[:size]
         return (
-            np.array(self.states)[perm],
-            np.array(self.actions)[perm],
-            np.array(self.rewards)[perm],
-            np.array(self.next_states)[perm],
-            np.array(self.dones)[perm],
+            xp.array(self.states)[perm],
+            xp.array(self.actions)[perm],
+            xp.array(self.rewards)[perm],
+            xp.array(self.next_states)[perm],
+            xp.array(self.dones)[perm],
         )
 
 
 class DQNAgent(object):
 
-    def __init__(self, action_space, q_function, gamma=0.9, eps=0.05):
+    def __init__(self, action_space, q_function, gamma=0.9, eps=0.05, gpu=False):
         self.action_space = action_space
         self.q_function = q_function
         self.transitions = Transitions()
@@ -77,6 +86,7 @@ class DQNAgent(object):
         self.optimizer = optimizers.Adam()
         self.optimizer.use_cleargrads()
         self.optimizer.setup(self.q_function)
+        self.gpu = gpu
 
     def action(self, obs):
         '''
@@ -84,25 +94,32 @@ class DQNAgent(object):
         '''
         if random.random() < self.eps:
             return self.action_space.sample()
-        obs = np.array([obs], dtype=np.float32)
+        obs = xp.array([obs], dtype=xp.float32)
         q_value = self.q_function.forward(obs, train=False)
         act = F.argmax(q_value)
-        return act.data
+        return int(act.data)
 
     def store_transition(self, state, action, reward, next_state, done):
         self.transitions.store(state, action, reward, next_state, done)
 
     def update(self):
         states, actions, rewards, next_states, dones = self.transitions.sample()
+        next_states = next_states.astype(np.float32)
+        if self.gpu:
+            next_states = cuda.to_gpu(next_states)
         max_q_value = F.max(
-            self.q_function.forward(next_states.astype(np.float32), train=False), axis=1)
-        terminal = np.ones(dones.shape, dtype=np.float32)
+            self.q_function.forward(next_states, train=False), axis=1)
+        terminal = xp.ones(dones.shape, dtype=np.float32)
         terminal[dones] = 0
         y = rewards + self.gamma * terminal * max_q_value.data
         y = y.astype(np.float32)
 
         states = states.astype(np.float32)
         actions = actions.astype(np.int32)
+        if self.gpu:
+            states = cuda.to_gpu(states)
+            actions = cuda.to_gpu(actions)
+            y = cuda.to_gpu(y)
         self.optimizer.update(self.q_function, states, actions, y)
 
 
@@ -110,7 +127,9 @@ env = gym.make('CartPole-v0')
 n_action = env.action_space.n
 n_obs = env.observation_space.shape[0]
 q_function = QFunction(n_action, n_obs)
-agent = DQNAgent(env.action_space, q_function)
+if q_function:
+    q_function.to_gpu(0)
+agent = DQNAgent(env.action_space, q_function, gpu=gpu)
 for j in range(1000):
     state = env.reset()
     sum_reward = 0
