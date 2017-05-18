@@ -49,7 +49,7 @@ class Transitions(object):
         self.dones = []
 
     def _shift(self):
-        if len(self.states) <= 100000:
+        if len(self.states) <= 10000:
             return
         self.states = self.states[1:]
         self.actions = self.actions[1:]
