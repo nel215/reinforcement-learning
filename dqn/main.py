@@ -18,21 +18,24 @@ else:
     xp = np
 
 
+
 class QFunction(Chain):
 
     def __init__(self, n_action, n_obs):
         super(QFunction, self).__init__(
-            l=L.Linear(n_obs, n_action),
+            l1=L.Linear(n_obs, 100),
+            l2=L.Linear(100, n_action),
         )
 
     def forward(self, obs, train=True):
-        h = F.dropout(self.l(obs), train=train)
-        return F.softmax(h)
+        h1 = F.relu(self.l1(obs))
+        h2 = self.l2(h1)
+        return h2
 
     def __call__(self, states, actions, y):
         q_value = F.select_item(self.forward(states), actions)
 
-        loss = F.sum(F.squared_error(y, q_value))
+        loss = F.mean_squared_error(y, q_value)
         return loss
 
 
