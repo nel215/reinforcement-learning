@@ -40,22 +40,38 @@ class QFunction(Chain):
         return loss
 
 
-class Transitions(object):
+class ReplayMemory(object):
 
     def __init__(self, capacity=10000):
         self.capacity = capacity
-        self.buffer = deque()
+        self.memory = deque()
 
     def store(self, state, action, reward, next_state, done):
-        self.buffer.append([state, action, reward, next_state, done])
-        if len(self.buffer) <= self.capacity:
+        '''
+        Parameters:
+            state: [ndarray[np.float]]
+            action: [int]
+            reward: [float]
+            next_state: [ndarray[np.float]]
+            done: [bool]
+        '''
+        self.memory.append([state, action, reward, next_state, done])
+        if len(self.memory) <= self.capacity:
             return
-        self.buffer.popleft()
+        self.memory.popleft()
 
     def sample(self, size=512):
-        size = min(size, len(self.buffer))
+        '''
+        Returns:
+            states: [ndarray[np.float32]]
+            actions: [ndarray[np.integer]]
+            rewards: [ndarray[np.float32]]
+            next_states: [ndarray[np.float32]]
+            dones: [ndarray[np.bool]]
+        '''
+        size = min(size, len(self.memory))
         states, actions, rewards, next_states, dones = map(
-            np.array, zip(*random.sample(self.buffer, size)))
+            np.array, zip(*random.sample(self.memory, size)))
         states = states.astype(np.float32)
         rewards = rewards.astype(np.float32)
         next_states = next_states.astype(np.float32)
@@ -67,7 +83,7 @@ class DQNAgent(object):
     def __init__(self, action_space, q_function, gamma=0.9, eps=0.05, gpu=False):
         self.action_space = action_space
         self.q_function = q_function
-        self.transitions = Transitions()
+        self.replay_memory = ReplayMemory()
         self.gamma = gamma
         self.eps = eps
         self.optimizer = optimizers.Adam()
@@ -86,11 +102,11 @@ class DQNAgent(object):
         act = F.argmax(q_value)
         return int(act.data)
 
-    def store_transition(self, state, action, reward, next_state, done):
-        self.transitions.store(state, action, reward, next_state, done)
+    def store_experience_replay(self, state, action, reward, next_state, done):
+        self.replay_memory.store(state, action, reward, next_state, done)
 
     def update(self):
-        states, actions, rewards, next_states, dones = self.transitions.sample()
+        states, actions, rewards, next_states, dones = self.replay_memory.sample()
         if self.gpu:
             actions = cuda.to_gpu(actions)
             states = cuda.to_gpu(states)
@@ -123,7 +139,7 @@ for j in range(10000):
     while True:
         act = agent.action(state)
         next_state , reward, done, info = env.step(act)
-        agent.store_transition(state, act, reward, next_state, done)
+        agent.store_experience_replay(state, act, reward, next_state, done)
         agent.update()
         sum_reward += reward
         state = next_state
