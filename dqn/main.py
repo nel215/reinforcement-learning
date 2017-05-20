@@ -7,6 +7,7 @@ import chainer.links as L
 import matplotlib.pyplot as plt
 import chainer
 import cupy
+from collections import deque
 from chainer import Chain, optimizers
 from chainer import cuda
 
@@ -41,41 +42,24 @@ class QFunction(Chain):
 
 class Transitions(object):
 
-    def __init__(self):
-        self.states = []
-        self.actions = []
-        self.rewards = []
-        self.next_states = []
-        self.dones = []
-
-    def _shift(self):
-        if len(self.states) <= 10000:
-            return
-        self.states = self.states[1:]
-        self.actions = self.actions[1:]
-        self.rewards = self.rewards[1:]
-        self.next_states = self.next_states[1:]
-        self.dones = self.dones[1:]
+    def __init__(self, capacity=10000):
+        self.capacity = capacity
+        self.buffer = deque()
 
     def store(self, state, action, reward, next_state, done):
-        self.states.append(state)
-        self.actions.append(action)
-        self.rewards.append(reward)
-        self.next_states.append(next_state)
-        self.dones.append(done)
-        self._shift()
+        self.buffer.append([state, action, reward, next_state, done])
+        if len(self.buffer) <= self.capacity:
+            return
+        self.buffer.popleft()
 
     def sample(self, size=512):
-        n = len(self.states)
-        size = min(n, size)
-        perm = np.random.permutation(n)[:size]
-        return (
-            xp.array(self.states)[perm],
-            xp.array(self.actions)[perm],
-            xp.array(self.rewards)[perm],
-            xp.array(self.next_states)[perm],
-            xp.array(self.dones)[perm],
-        )
+        size = min(size, len(self.buffer))
+        states, actions, rewards, next_states, dones = map(
+            np.array, zip(*random.sample(self.buffer, size)))
+        states = states.astype(np.float32)
+        rewards = rewards.astype(np.float32)
+        next_states = next_states.astype(np.float32)
+        return states, actions, rewards, next_states, dones
 
 
 class DQNAgent(object):
@@ -107,22 +91,19 @@ class DQNAgent(object):
 
     def update(self):
         states, actions, rewards, next_states, dones = self.transitions.sample()
-        next_states = next_states.astype(np.float32)
         if self.gpu:
+            actions = cuda.to_gpu(actions)
+            states = cuda.to_gpu(states)
+            rewards = cuda.to_gpu(rewards)
             next_states = cuda.to_gpu(next_states)
+            dones = cuda.to_gpu(dones)
+
         q_value = self.q_function.forward(next_states, train=False)
         max_q_value = F.max(q_value, axis=1)
-        terminal = xp.ones(dones.shape, dtype=np.float32)
+        terminal = xp.ones(dones.shape, dtype=xp.float32)
         terminal[dones] = 0
         y = rewards + self.gamma * terminal * max_q_value.data
-        y = y.astype(np.float32)
 
-        states = states.astype(np.float32)
-        actions = actions.astype(np.int32)
-        if self.gpu:
-            states = cuda.to_gpu(states)
-            actions = cuda.to_gpu(actions)
-            y = cuda.to_gpu(y)
         self.optimizer.zero_grads()
         loss = self.q_function(states, actions, y)
         loss.backward()
